@@ -202,8 +202,8 @@ fun SettingsScreen(
             Column {
                 SettingRow("TunClash", "v" + com.mihomo.tproxy.BuildConfig.VERSION_NAME, onClick = {}, vertical = 10)
                 Divider()
-                SettingRow("项目地址", "github.com/De4869/tunclash", onClick = {
-                    runCatching { uriHandler.openUri("https://github.com/De4869/tunclash") }
+                SettingRow("项目地址", "github.com/BUGJI/tunclash", onClick = {
+                    runCatching { uriHandler.openUri("https://github.com/BUGJI/tunclash") }
                 }, vertical = 10)
                 Divider()
                 SettingRow(
@@ -306,7 +306,7 @@ fun SettingsScreen(
                     modifier = Modifier.clickableNoRipple {
                         runCatching {
                             uriHandler.openUri(
-                                state.appUpdateUrl.ifBlank { "https://github.com/De4869/tunclash/releases/latest" }
+                                state.appUpdateUrl.ifBlank { "https://github.com/BUGJI/tunclash/releases/latest" }
                             )
                         }
                         showAppUpdate = false

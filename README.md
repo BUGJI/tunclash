@@ -1,7 +1,7 @@
 # TunClash · mihomo 透明代理
 
-[![CI](https://github.com/De4869/tunclash/actions/workflows/ci.yml/badge.svg)](https://github.com/De4869/tunclash/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/De4869/tunclash)](https://github.com/De4869/tunclash/releases)
+[![CI](https://github.com/BUGJI/tunclash/actions/workflows/ci.yml/badge.svg)](https://github.com/BUGJI/tunclash/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/BUGJI/tunclash)](https://github.com/BUGJI/tunclash/releases)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3ddc84)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -66,17 +66,17 @@
 
 ### 3.1 下载
 
-产物在 [Releases](https://github.com/De4869/tunclash/releases) 页面：
+产物在 [Releases](https://github.com/BUGJI/tunclash/releases) 页面：
 
 | 文件 | 用途 |
 |---|---|
-| `TunClash-v1.2.9.apk` | App（控制面板 + 一键装内核） |
-| `TunClash-Module-v1.2.9.zip` | KernelSU / Magisk 模块（可脱离 App） |
+| `TunClash-v1.3.1.apk` | App（控制面板 + 一键装内核） |
+| `TunClash-Module-v1.3.1.zip` | KernelSU / Magisk 模块（可脱离 App） |
 
 ### 3.2 只装 App（推荐）
 
 ```bash
-adb install -r TunClash-v1.2.9.apk
+adb install -r TunClash-v1.3.1.apk
 ```
 
 1. 打开 App，KernelSU 会弹出 Root 授权 → **允许**（勾选记住）。
@@ -87,8 +87,8 @@ adb install -r TunClash-v1.2.9.apk
 ### 3.3 模块（可选）
 
 ```bash
-adb push TunClash-Module-v1.2.9.zip /data/local/tmp/
-adb shell su -c "ksud module install /data/local/tmp/TunClash-Module-v1.2.9.zip"
+adb push TunClash-Module-v1.3.1.zip /data/local/tmp/
+adb shell su -c "ksud module install /data/local/tmp/TunClash-Module-v1.3.1.zip"
 ```
 
 模块只负责：装内核/geo/控制脚本 + 开机按 `/data/adb/mihomo_tproxy/auto_start` 标志启动内核。

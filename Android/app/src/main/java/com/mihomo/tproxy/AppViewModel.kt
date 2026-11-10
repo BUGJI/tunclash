@@ -443,8 +443,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val current = com.mihomo.tproxy.BuildConfig.VERSION_NAME
                 // API first (gives notes + apk link), then plain redirect as a fallback
-                val rel = CoreUpdater.latestRelease("De4869/tunclash", true)
-                    ?: CoreUpdater.latestRelease("De4869/tunclash", false)
+                val rel = CoreUpdater.latestRelease("BUGJI/tunclash", true)
+                    ?: CoreUpdater.latestRelease("BUGJI/tunclash", false)
                 if (rel != null) {
                     val latest = rel.tag.trim().removePrefix("v")
                     if (latest == current) {
@@ -464,8 +464,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     return@launch
                 }
-                val tag = CoreUpdater.tagFromRedirect("De4869/tunclash", true)
-                    ?: CoreUpdater.tagFromRedirect("De4869/tunclash", false)
+                val tag = CoreUpdater.tagFromRedirect("BUGJI/tunclash", true)
+                    ?: CoreUpdater.tagFromRedirect("BUGJI/tunclash", false)
                 if (tag != null) {
                     val latest = tag.trim().removePrefix("v")
                     if (latest == current) {
