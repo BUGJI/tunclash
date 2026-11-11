@@ -354,8 +354,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun startEngine(): Boolean {
+    private suspend fun startEngine(): Boolean {
         if (!core.status()) {
+            // a missing binary (e.g. an APK whose core asset was not bundled) used to
+            // fail at config validation with a misleading message; retry install first
+            if (!core.binaryExists() && !ensureInstalled()) return false
             val yaml = composeActive()
             if (!writeValidated(yaml)) return false
             val r = core.start()

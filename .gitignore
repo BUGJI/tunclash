@@ -19,6 +19,7 @@ Android/app/build/
 module/bin/
 module/geo/
 Android/app/src/main/assets/mihomo.gz
+Android/app/src/main/assets/mihomo
 Android/app/src/main/assets/geoip.metadb
 Android/app/src/main/assets/geosite.dat
 

@@ -151,7 +151,12 @@ fun NodesScreen(state: UiState, vm: AppViewModel) {
             base.sortedBy { if (nodeMap.containsKey(it)) 0 else 1 }
         }
         if (group == null) {
-            EmptyHint("还没有节点", "去「订阅」添加订阅地址或粘贴节点链接")
+            when {
+                !state.rootOk -> EmptyHint("需要 Root 权限", "节点由 mihomo 内核加载；请先在 KernelSU / Magisk 中授权本应用")
+                !state.coreRunning -> EmptyHint("内核未运行", "订阅里的节点需要内核加载；去首页打开开关，启动后再回来查看")
+                state.profiles.isEmpty() -> EmptyHint("还没有节点", "去「订阅」添加订阅地址或粘贴节点链接")
+                else -> EmptyHint("配置里没有可用节点", "当前配置未解析到节点，请检查订阅内容或重新更新")
+            }
         } else {
             LazyColumn(Modifier.fillMaxWidth()) {
                 item {

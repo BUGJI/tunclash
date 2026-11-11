@@ -30,6 +30,9 @@ class CoreManager(private val ctx: Context) {
 
     fun binaryExists(): Boolean = RootShell.exec("test -x " + BIN + " && echo yes", 8).out.contains("yes")
 
+    private fun hasAsset(name: String): Boolean =
+        runCatching { ctx.assets.open(name).close() }.isSuccess
+
     fun installedVersion(): String {
         val r = RootShell.exec("cat $DIR/.version 2>/dev/null", 8)
         return r.out.trim()
@@ -39,10 +42,21 @@ class CoreManager(private val ctx: Context) {
         if (!RootShell.hasRoot()) return Result.failure(Exception("未获得 Root 权限"))
         onStep("准备目录")
         if (!ensureDirs()) return Result.failure(Exception("无法创建运行时目录"))
-        if (installedVersion() != VERSION_TAG) {
+        if (installedVersion() != VERSION_TAG || !binaryExists()) {
             onStep("写入 mihomo 内核 (arm64)")
-            val ok = pushAssetGz("mihomo.gz", "$DIR/bin/mihomo", 0b111101101) // 0755
-            if (!ok) return Result.failure(Exception("内核安装失败"))
+            // Release builds ship assets/mihomo.gz; some locally built APKs ship the
+            // raw ELF as assets/mihomo. Accept either so a packaging mismatch no
+            // longer leaves the runtime directory empty.
+            val ok = when {
+                hasAsset("mihomo.gz") -> pushAssetGz("mihomo.gz", BIN, 0b111101101) // 0755
+                hasAsset("mihomo") -> pushAssetRaw("mihomo", BIN, 0b111101101)
+                else -> false
+            }
+            if (!ok || !binaryExists()) {
+                return Result.failure(
+                    Exception("安装包缺少内核文件（assets/mihomo.gz 或 assets/mihomo），请使用完整安装包，或先运行 scripts/fetch-deps.sh 再打包")
+                )
+            }
             RootShell.exec("echo '" + VERSION_TAG + "' > $DIR/.version")
         }
         onStep("写入 geo 数据库")
