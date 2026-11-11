@@ -63,8 +63,11 @@ class CoreManager(private val ctx: Context) {
         pushAssetRaw("geoip.metadb", "$DIR/data/geoip.metadb", 0b110100100)
         pushAssetRaw("geosite.dat", "$DIR/data/geosite.dat", 0b110100100)
         onStep("写入控制脚本")
+        // Android's sh cannot parse CRLF scripts; a Windows build can otherwise
+        // ship ctl.sh with \r\n and every start/stop silently fails.
         val ctl = ctx.assets.open("ctl.sh").readBytes()
-        pushBytes("$DIR/ctl.sh", ctl, 0b111101101)
+        val lf = String(ctl, Charsets.UTF_8).replace("\r\n", "\n").replace('\r', '\n').toByteArray(Charsets.UTF_8)
+        pushBytes("$DIR/ctl.sh", lf, 0b111101101)
         if (!File(LOG).exists()) RootShell.exec("touch $LOG")
         onStep("完成")
         return Result.success("内核 " + VERSION_TAG + " 就绪")
