@@ -29,7 +29,7 @@ if [ -f "$LIST" ]; then
     elif [ -f "$DATA/$f" ] && grep -q "proxies:" "$DATA/$f"; then
       # a subscription is a full Clash config; a provider must contain only the proxies list
       awk 'BEGIN{p=0} /^proxies:/{p=1; print; next} p && /^[A-Za-z0-9_-]+:/{exit} p{print}' "$DATA/$f" > "$DATA/p$i.yaml"
-      if [ "$(grep -c 'name:' "$DATA/p$i.yaml" 2>/dev/null)" -gt 0 ]; then
+      if [ "$(grep -cE '(^|[[:space:]])name[[:space:]]*:' "$DATA/p$i.yaml" 2>/dev/null)" -gt 0 ]; then
         USED="$USED sub$i"
       fi
     fi
@@ -38,28 +38,111 @@ if [ -f "$LIST" ]; then
 fi
 
 
-# ---- merge every provider into one list, de-duplicated by type+server+port+credential ----
+# ---- merge every provider into one list, de-duplicated by proxy name ----
 MERGE="$DATA/all.yaml"
 cat > "$DATA/dedupe.awk" <<'AWKEOF'
-BEGIN { Q = sprintf("%c", 39) }
-function qv(line, key,   i, s, j) {
-  i = index(line, key ": ")
-  if (!i) return ""
-  s = substr(line, i + length(key) + 2)
-  if (substr(s, 1, 1) == Q) { s = substr(s, 2); j = index(s, Q); if (j) s = substr(s, 1, j - 1) }
-  else { j = index(s, ","); if (j) s = substr(s, 1, j - 1) }
+# Merges proxy items from one or more Clash configs into a single provider list.
+# Handles both styles:
+#   - { name: 'HK 01', type: ss, ... }      (flow)
+#   - name: HK 01                            (block, multi-line)
+#     type: ss
+# ...
+BEGIN { Q1 = sprintf("%c", 39); Q2 = sprintf("%c", 34) }
+
+function ltrim(s) { sub(/^[ \t]+/, "", s); return s }
+function rtrim(s) { sub(/[ \t]+$/, "", s); return s }
+function trim(s)  { return rtrim(ltrim(s)) }
+
+function unq(s,   c, p) {
+  s = trim(s)
+  c = substr(s, 1, 1)
+  if (c == Q1 || c == Q2) {
+    p = index(substr(s, 2), c)
+    if (p > 0) return substr(s, 2, p - 1)
+    return substr(s, 2)
+  }
   return s
 }
-/^[ \t]*- \{/ {
-  line = $0; sub(/^[ \t]+/, "", line)
-  n = qv(line, "name")
-  if (n ~ /剩余流量|套餐|到期|过期|已用流量|重置|官网|订阅|客服|试用/) next
-  # mihomo requires unique proxy names inside one provider, so de-duplicate by name
-  k = n
-  if (k in seen) next
-  seen[k] = 1
-  print line
+
+function flow_name(s,   body, i, j, c, q, seg, n, parts, k) {
+  i = index(s, "{")
+  if (!i) return ""
+  body = substr(s, i + 1)
+  i = index(body, "}")
+  if (i) body = substr(body, 1, i - 1)
+  n = 0; seg = ""; q = ""
+  for (i = 1; i <= length(body); i++) {
+    c = substr(body, i, 1)
+    if (q != "") {
+      seg = seg c
+      if (c == q) q = ""
+    } else if (c == Q1 || c == Q2) {
+      q = c; seg = seg c
+    } else if (c == ",") {
+      n++; parts[n] = seg; seg = ""
+    } else {
+      seg = seg c
+    }
+  }
+  n++; parts[n] = seg
+  for (i = 1; i <= n; i++) {
+    k = index(parts[i], ":")
+    if (k > 0 && trim(substr(parts[i], 1, k - 1)) == "name") return unq(substr(parts[i], k + 1))
+  }
+  return ""
 }
+
+function block_name(lines, cnt,   i) {
+  for (i = 1; i <= cnt; i++) {
+    if (match(lines[i], /^[ \t]*(-[ \t]+)?name[ \t]*:/)) return unq(substr(lines[i], RSTART + RLENGTH))
+  }
+  return ""
+}
+
+function junk(n) { return n ~ /剩余流量|套餐|到期|过期|已用流量|重置|官网|订阅|客服|试用/ }
+
+function flush(   i, nm) {
+  if (in_item && nbuf > 0) {
+    if (buf[1] ~ /^[ \t]*-[ \t]+\{/) nm = flow_name(buf[1])
+    else nm = block_name(buf, nbuf)
+    # mihomo needs unique names inside one provider, so de-duplicate by name
+    if (!junk(nm) && (nm == "" || !(nm in seen))) {
+      if (nm != "") seen[nm] = 1
+      for (i = 1; i <= nbuf; i++) print buf[i]
+    }
+  }
+  nbuf = 0; in_item = 0
+}
+
+# normalise CRLF subscriptions (no-op on LF)
+{ sub(/\r$/, "") }
+
+# each pN.yaml starts with its own proxies: header; reset grouping there
+/^proxies:[ \t]*$/ { flush(); item_indent = ""; next }
+
+{
+  if (match($0, /^[ \t]*-[ \t]+/)) {
+    dash = index($0, "-")
+    ws = substr($0, 1, dash - 1)
+    if (!in_item) {
+      in_item = 1; item_indent = ws
+      nbuf = 1; buf[1] = $0
+      next
+    }
+    if (ws == item_indent) {
+      flush()
+      in_item = 1; item_indent = ws
+      nbuf = 1; buf[1] = $0
+      next
+    }
+    # deeper dash lines are nested lists (e.g. alpn:), keep them in the item
+    nbuf++; buf[nbuf] = $0
+    next
+  }
+  if (in_item) { nbuf++; buf[nbuf] = $0 }
+}
+
+END { flush() }
 AWKEOF
 
 {
@@ -69,7 +152,13 @@ AWKEOF
     [ -f "$DATA/p$idx.yaml" ] && cat "$DATA/p$idx.yaml"
   done | awk -f "$DATA/dedupe.awk"
 } > "$MERGE"
-MERGED=$(grep -c 'name:' "$MERGE" 2>/dev/null)
+MERGED=$(grep -cE '(^|[[:space:]])name[[:space:]]*:' "$MERGE" 2>/dev/null)
+
+# Never fail silently: if subscriptions were picked up but nothing merged, the
+# proxy list format was not understood (previously block-style nodes vanished).
+if [ -n "$USED" ] && [ "$MERGED" -eq 0 ]; then
+  echo "warn: subscriptions found but no proxy merged, check the proxies format" >&2
+fi
 
 USECSV=$(echo $USED | tr ' ' ',')
 {

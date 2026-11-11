@@ -718,8 +718,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     store.upsert(p)
                     _state.update { it.copy(profiles = store.profiles) }
-                    if (store.activeId.isBlank()) activate(p.id)
-                    toast("已添加: " + p.name + " · " + p.nodeCount + " 节点")
+                    // a newly added subscription should become the active one, otherwise the
+                    // node page keeps showing the previous profile and looks "empty"
+                    activate(p.id)
+                    if (p.nodeCount == 0) {
+                        toast("已添加「" + p.name + "」，本地未解析到节点；provider 订阅会稍后由内核加载")
+                    } else {
+                        toast("已添加: " + p.name + " · " + p.nodeCount + " 节点")
+                    }
                     doneOnMain(done, true, p.name)
                 } else {
                     val content = text
@@ -740,9 +746,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     store.upsert(p)
                     _state.update { it.copy(profiles = store.profiles) }
-                    if (store.activeId.isBlank()) activate(p.id)
+                    activate(p.id)
                     toast("已添加 " + p.nodeCount + " 个节点")
-                    done(true, p.name)
+                    doneOnMain(done, true, p.name)
                 }
             } finally {
                 _state.update { it.copy(busy = false) }

@@ -141,7 +141,7 @@ function toggleTheme(){applyTheme(document.documentElement.dataset.theme==="ligh
 async function refresh(){try{await loadSecret();const pid=await sh("sh "+DIR+"/ctl.sh status");state.running=pid.indexOf("running")>=0;const ver=state.running?await api("/version"):null;const cfg=state.running?await api("/configs"):null;state.mode=(cfg&&cfg.mode)||"rule";const px=state.running?await api("/proxies"):null;if(px&&px.proxies){state.groups=[];state.nodes={};
       var BUILTIN0={DIRECT:1,REJECT:1,"REJECT-DROP":1,PASS:1,"PASS-RULE":1,COMPATIBLE:1};
       for(const k in px.proxies){const p=px.proxies[k];if(p.all)state.groups.push(p);else if(!BUILTIN0[k])state.nodes[k]=p;}state.groups.sort((a,b)=>(a.name==="🚀 节点选择"?-1:0)-(b.name==="🚀 节点选择"?-1:0));const g=state.groups.find(x=>x.name==="🚀 节点选择")||state.groups.find(x=>x.type==="Selector")||state.groups[0];state.current=g?g.now:"";}state.version=ver?ver.version:"";
-    state.merged=parseInt(await sh("grep -c 'name:' "+DIR+"/data/all.yaml 2>/dev/null")||"0",10)||0;
+    state.merged=parseInt(await sh("grep -cE '(^|[[:space:]])name[[:space:]]*:' "+DIR+"/data/all.yaml 2>/dev/null")||"0",10)||0;
     // provider nodes live inside group.all rather than at the top level of /proxies
     var groupNames={}; state.groups.forEach(function(g){ groupNames[g.name]=1; });
     var BUILTIN={DIRECT:1,REJECT:1,"REJECT-DROP":1,PASS:1,"PASS-RULE":1,COMPATIBLE:1};
@@ -182,6 +182,34 @@ function linkToClash(link){
     if(j.tls==="tls"){p.push("tls: true");if(j.sni||j.host)p.push("servername: "+ysq(j.sni||j.host));}
     p.push("network: "+ysq(net));
     if(net==="ws")p.push("ws-opts: { path: "+ysq(j.path||"/")+", headers: { Host: "+ysq(j.host||j.add)+" } }");
+    return "- { "+p.join(", ")+" }";
+  }
+  if(scheme==="socks5"||scheme==="socks5h"||scheme==="socks"){
+    let full=noFrag;
+    let cred="";
+    const at2=full.lastIndexOf("@");
+    if(at2>=0){cred=full.slice(0,at2);full=full.slice(at2+1);}
+    let hp=full.split("/")[0].split("?")[0];
+    let host,port;
+    if(hp.charAt(0)==="["){
+      host=hp.slice(1,hp.indexOf("]"));
+      const pn=parseInt(hp.slice(hp.indexOf("]")+2),10);
+      port=isNaN(pn)?1080:pn;
+    }else{
+      const c=hp.lastIndexOf(":");
+      host=c>=0?hp.slice(0,c):hp;
+      const pn=c>=0?parseInt(hp.slice(c+1),10):NaN;
+      port=isNaN(pn)?1080:pn;
+    }
+    if(!host)return null;
+    let user="",pass="";
+    if(cred){
+      if(cred.indexOf(":")>=0){const m=cred.split(":");user=decodeURIComponent(m[0]);pass=decodeURIComponent(m.slice(1).join(":"));}
+      else{const d=b64d(cred);if(d&&d.indexOf(":")>=0){user=d.split(":")[0];pass=d.split(":").slice(1).join(":");}else user=decodeURIComponent(cred);}
+    }
+    const p=["name: "+ysq(name||(host+":"+port)),"type: socks5","server: "+ysq(host),"port: "+port,"udp: true"];
+    if(user)p.push("username: "+ysq(user));
+    if(pass)p.push("password: "+ysq(pass));
     return "- { "+p.join(", ")+" }";
   }
   const at=noFrag.lastIndexOf("@"); if(at<0)return null;
@@ -262,14 +290,14 @@ async function renderSubs(v){
     const p = line.split("|");
     rows.push({ name: p[0] || "", url: p[1] || "", count: 0, clash: false, mtime: "" });
   }for (let i = 0; i < rows.length; i++) {
-    const c = parseInt(await sh("grep -c 'name:' " + DIR + "/data/p" + i + ".yaml 2>/dev/null") || "0", 10) || 0;
+    const c = parseInt(await sh("grep -cE '(^|[[:space:]])name[[:space:]]*:' " + DIR + "/data/p" + i + ".yaml 2>/dev/null") || "0", 10) || 0;
     rows[i].count = c;
     rows[i].clash = c > 0;
     rows[i].mtime = await sh("stat -c %y " + DIR + "/data/sub" + i + ".yaml 2>/dev/null | cut -d. -f1");
   }const total=rows.reduce((a,r)=>a+(r.count||0),0);
   
   const skip = !!(await sh("test -f "+DIR+"/skip_tls && echo 1"));
-  const merged=parseInt(await sh("grep -c 'name:' "+DIR+"/data/all.yaml 2>/dev/null")||"0",10)||0;v.innerHTML='<div class="card"><div class="row" style="justify-content:space-between"><div><div class="ttl">订阅概览</div><div class="big">'+rows.length+' 个订阅 · 运行中 '+Object.keys(state.nodes).length+' 个</div><div class="muted" style="margin-top:4px">合并去重后 '+(state.merged||0)+' 个 · 订阅原始合计 '+total+' 个</div></div><div class="badge">provider</div></div></div>'+'<div class="card"><div class="ttl">添加 Clash 订阅</div><div style="margin-top:8px"><input id="subUrl" placeholder="http(s)://..."></div><div class="row" style="margin-top:8px"><input id="subName" placeholder="备注名（可选）" style="flex:1"><button class="btn" onclick="addSub()">添加</button></div><div class="row" style="margin-top:8px;justify-content:space-between"><div class="muted">跳过证书校验（自签名 / 内网）</div><button class="btn ghost" onclick="toggleSkipTls()">'+(skip?'已开启':'关闭')+'</button></div></div>'+'<div class="list">'+(rows.length?rows.map((r,i)=>'<div class="item"><div class="grow"><div class="nm">'+esc(r.name)+'</div><div class="sb url">'+esc(r.url)+'</div>'+(r.mtime?'<div class="sb">'+esc(r.mtime)+'</div>':'')+'</div>'+(r.clash?'<div class="badge">'+r.count+' 节点</div>':'<div class="badge" style="color:var(--warn)">分享链接</div>')+'<button class="btn ghost" onclick="delSub('+i+')">删除</button></div>').join(""):'<div class="empty">还没有订阅</div>')+'</div>'+'<div class="card"><div class="row" style="justify-content:space-between"><button class="btn ghost" onclick="updateSubs()">更新全部</button><button class="btn ghost" onclick="refresh().then(render)">刷新</button></div></div>';}
+  const merged=parseInt(await sh("grep -cE '(^|[[:space:]])name[[:space:]]*:' "+DIR+"/data/all.yaml 2>/dev/null")||"0",10)||0;v.innerHTML='<div class="card"><div class="row" style="justify-content:space-between"><div><div class="ttl">订阅概览</div><div class="big">'+rows.length+' 个订阅 · 运行中 '+Object.keys(state.nodes).length+' 个</div><div class="muted" style="margin-top:4px">合并去重后 '+(state.merged||0)+' 个 · 订阅原始合计 '+total+' 个</div></div><div class="badge">provider</div></div></div>'+'<div class="card"><div class="ttl">添加 Clash 订阅</div><div style="margin-top:8px"><input id="subUrl" placeholder="http(s)://..."></div><div class="row" style="margin-top:8px"><input id="subName" placeholder="备注名（可选）" style="flex:1"><button class="btn" onclick="addSub()">添加</button></div><div class="row" style="margin-top:8px;justify-content:space-between"><div class="muted">跳过证书校验（自签名 / 内网）</div><button class="btn ghost" onclick="toggleSkipTls()">'+(skip?'已开启':'关闭')+'</button></div></div>'+'<div class="list">'+(rows.length?rows.map((r,i)=>'<div class="item"><div class="grow"><div class="nm">'+esc(r.name)+'</div><div class="sb url">'+esc(r.url)+'</div>'+(r.mtime?'<div class="sb">'+esc(r.mtime)+'</div>':'')+'</div>'+(r.clash?'<div class="badge">'+r.count+' 节点</div>':'<div class="badge" style="color:var(--warn)">分享链接</div>')+'<button class="btn ghost" onclick="delSub('+i+')">删除</button></div>').join(""):'<div class="empty">还没有订阅</div>')+'</div>'+'<div class="card"><div class="row" style="justify-content:space-between"><button class="btn ghost" onclick="updateSubs()">更新全部</button><button class="btn ghost" onclick="refresh().then(render)">刷新</button></div></div>';}
 let logTimer=null;
 function filterLog(t){return (t||"").split("\n").filter(l=>{if(state.level==="warn")return /warn/i.test(l);if(state.level==="error")return /error|fatal/i.test(l);return true;}).filter(l=>!state.q||l.toLowerCase().includes(state.q.toLowerCase())).join("\n")||"暂无日志";}
 async function renderLogs(v){clearInterval(logTimer);const log=await sh("tail -n 120 "+DIR+"/logs/core.log 2>/dev/null");v.innerHTML='<div class="row" style="gap:8px"><div style="flex:1"><input placeholder="搜索日志" value="'+esc(state.q)+'" oninput="state.q=this.value;render()"></div><button class="btn ghost" onclick="copyLogs()">复制</button><button class="btn ghost" onclick="clearLogs()">清空</button></div>'

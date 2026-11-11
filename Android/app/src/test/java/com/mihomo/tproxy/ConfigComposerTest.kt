@@ -151,6 +151,61 @@ rules:
     }
 
     @Test
+    fun blockStyleSocks5SubscriptionKeepsNodes() {
+        val cfg = """
+proxies:
+  - name: 北京电信1
+    type: socks5
+    server: gz01.gzsk5.com
+    port: 30000
+    password: txu_20261111
+    udp: true
+    username: ytqb1111gt1000
+  - name: 北京电信2
+    type: socks5
+    server: gz01.gzsk5.com
+    port: 30000
+    password: PWv_20261111
+    udp: true
+    username: ytqb1111gt1001
+proxy-groups:
+  - name: 🚀 节点选择
+    type: select
+    proxies:
+      - DIRECT
+      - REJECT
+      - 北京电信1
+      - 北京电信2
+rules:
+  - MATCH,🚀 节点选择
+""".trimIndent()
+        assertEquals(2, ConfigComposer.nodeCount(cfg))
+        val out = ConfigComposer.compose(cfg, settings)
+        assertTrue(out.contains("type: socks5"))
+        assertTrue(out.contains("北京电信1"))
+        assertTrue(out.contains("北京电信2"))
+        assertTrue(out.contains("MATCH,🚀 节点选择"))
+        dump("09-socks5-block.yaml", out)
+    }
+
+    @Test
+    fun socks5ShareLinksConvert() {
+        val socks = listOf(
+            "socks5://user1:pass1@1.2.3.4:1080#SOCKS-A",
+            "socks5://5.6.7.8:1080#SOCKS-B",
+            "socks://" + Base64.getEncoder().encodeToString("user2:pass2".toByteArray()) + "@9.9.9.9:1080#SOCKS-C"
+        ).joinToString("\n")
+        assertEquals(3, ConfigComposer.nodeCount(socks))
+        val out = ConfigComposer.compose(socks, settings)
+        assertTrue(out.contains("type: socks5"))
+        assertTrue(out.contains("username: \"user1\""))
+        assertTrue(out.contains("password: \"pass1\""))
+        assertTrue(out.contains("server: \"5.6.7.8\""))
+        assertTrue(out.contains("server: \"9.9.9.9\""))
+        dump("10-socks5-links.yaml", out)
+    }
+
+    @Test
     fun brokenEscapeNamesAreNormalized() {
         val cfg = """
 proxies:

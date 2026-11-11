@@ -16,7 +16,8 @@ object ShareLinks {
     fun isLink(s: String): Boolean =
         s.startsWith("vmess://") || s.startsWith("vless://") || s.startsWith("trojan://") ||
             s.startsWith("ss://") || s.startsWith("hysteria2://") || s.startsWith("hy2://") ||
-            s.startsWith("tuic://") || s.startsWith("hysteria://")
+            s.startsWith("tuic://") || s.startsWith("hysteria://") ||
+            s.startsWith("socks5://") || s.startsWith("socks5h://") || s.startsWith("socks://")
 
     /** Some airports hand out a base64 blob of share links. Unwrap it. */
     fun expand(text: String): String {
@@ -71,6 +72,9 @@ object ShareLinks {
             line.startsWith("hy2://") -> hysteria2(line.removePrefix("hy2://"))
             line.startsWith("hysteria://") -> hysteria(line.removePrefix("hysteria://"))
             line.startsWith("tuic://") -> tuic(line.removePrefix("tuic://"))
+            line.startsWith("socks5h://") -> socks5(line.removePrefix("socks5h://"))
+            line.startsWith("socks5://") -> socks5(line.removePrefix("socks5://"))
+            line.startsWith("socks://") -> socks5(line.removePrefix("socks://"))
             else -> null
         }
     }.getOrNull()
@@ -355,5 +359,47 @@ object ShareLinks {
         if (sni.isNotBlank()) extra += "sni: " + Yaml.quote(sni)
         if (q(query, "allow_insecure") == "1" || q(query, "insecure") == "1") extra += "skip-cert-verify: true"
         return sb(frag.ifBlank { host }, "tuic", host, port, extra)
+    }
+
+    /**
+     * socks5://user:pass@host:port#name
+     * socks5://host:port#name (no auth)
+     * socks://base64(user:pass)@host:port#name (some providers)
+     */
+    private fun socks5(rest: String): String? {
+        val (body, frag) = nameAndFragment(rest)
+        val at = body.lastIndexOf('@')
+        val hostport = (if (at >= 0) body.substring(at + 1) else body)
+            .substringBefore('/').substringBefore('?')
+        if (hostport.isBlank()) return null
+        val host: String
+        val port: Int
+        if (hostport.startsWith("[")) {
+            host = hostport.substringAfter('[').substringBefore(']')
+            port = hostport.substringAfter("]:", "").takeIf { it.isNotBlank() }?.toIntOrNull() ?: 1080
+        } else {
+            host = hostport.substringBeforeLast(':')
+            port = hostport.substringAfterLast(':').toIntOrNull() ?: 1080
+        }
+        if (host.isBlank()) return null
+        var username = ""
+        var password = ""
+        if (at >= 0) {
+            val raw = body.substring(0, at)
+            val decoded = if (raw.contains(':')) {
+                URLDecoder.decode(raw, "UTF-8")
+            } else {
+                val b = b64(raw)
+                val s = if (b != null) String(b, Charsets.UTF_8) else ""
+                if (s.contains(':')) s else URLDecoder.decode(raw, "UTF-8")
+            }
+            username = decoded.substringBefore(':')
+            password = decoded.substringAfter(':', "")
+        }
+        val extra = mutableListOf<String>()
+        if (username.isNotBlank()) extra += "username: " + Yaml.quote(username)
+        if (password.isNotBlank()) extra += "password: " + Yaml.quote(password)
+        extra += "udp: true"
+        return sb(frag.ifBlank { host }, "socks5", host, port, extra)
     }
 }

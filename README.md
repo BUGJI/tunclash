@@ -70,13 +70,13 @@
 
 | 文件 | 用途 |
 |---|---|
-| `TunClash-v1.3.1.apk` | App（控制面板 + 一键装内核） |
-| `TunClash-Module-v1.3.1.zip` | KernelSU / Magisk 模块（可脱离 App） |
+| `TunClash-v1.3.2.apk` | App（控制面板 + 一键装内核） |
+| `TunClash-Module-v1.3.2.zip` | KernelSU / Magisk 模块（可脱离 App） |
 
 ### 3.2 只装 App（推荐）
 
 ```bash
-adb install -r TunClash-v1.3.1.apk
+adb install -r TunClash-v1.3.2.apk
 ```
 
 1. 打开 App，KernelSU 会弹出 Root 授权 → **允许**（勾选记住）。
@@ -87,8 +87,8 @@ adb install -r TunClash-v1.3.1.apk
 ### 3.3 模块（可选）
 
 ```bash
-adb push TunClash-Module-v1.3.1.zip /data/local/tmp/
-adb shell su -c "ksud module install /data/local/tmp/TunClash-Module-v1.3.1.zip"
+adb push TunClash-Module-v1.3.2.zip /data/local/tmp/
+adb shell su -c "ksud module install /data/local/tmp/TunClash-Module-v1.3.2.zip"
 ```
 
 模块只负责：装内核/geo/控制脚本 + 开机按 `/data/adb/mihomo_tproxy/auto_start` 标志启动内核。
@@ -185,7 +185,7 @@ WebUI 能力：
 
 - 概览：运行状态、上下行速率/累计流量、模式切换（规则/全局/直连）、启动/暂停/重启
 - 节点：策略组切换、节点搜索、按延迟排序、点选切换、整组测速并自动选最快
-- 订阅：多个订阅**合并去重**成一个节点池（按节点名去重，同名只保留一条）；添加 Clash 订阅链接（http/https；自签名证书可在订阅页开启「跳过证书校验」）、删除、全部更新；**支持分享链接订阅**（`vless://` / `vmess://` / `trojan://` / `ss://` / `hysteria2://` / `tuic://` / `anytls://`，自动转换为 Clash YAML）
+- 订阅：多个订阅**合并去重**成一个节点池（按节点名去重，同名只保留一条）；添加 Clash 订阅链接（http/https；自签名证书可在订阅页开启「跳过证书校验」）、删除、全部更新；**支持分享链接订阅**（`vless://` / `vmess://` / `trojan://` / `ss://` / `hysteria2://` / `tuic://` / `anytls://` / `socks5://`，自动转换为 Clash YAML）
 - 日志：实时 tail 内核日志，每 3 秒自动刷新
 - 主题：右上角 ☾ / ☀ 切换深色与浅色，选择会记住
 

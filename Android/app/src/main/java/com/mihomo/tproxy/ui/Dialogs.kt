@@ -48,7 +48,7 @@ fun AddProfileDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         text = {
             Column {
                 Text(
-                    "支持：Clash 订阅链接、vmess/vless/trojan/ss/hysteria2 分享链接（可多行粘贴）",
+                    "支持：Clash 订阅链接、vmess/vless/trojan/ss/hysteria2/socks5 分享链接（可多行粘贴）",
                     color = Palette.textFaint, fontSize = 11.5.sp
                 )
                 Spacer(Modifier.height(10.dp))
